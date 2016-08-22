@@ -1,0 +1,8 @@
+body {
+    padding-top: 70px;
+}
+
+#stage canvas {
+    background-color: #e0e0e0;
+    border: 1px solid gray;
+}
