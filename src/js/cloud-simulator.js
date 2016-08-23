@@ -1,10 +1,16 @@
-(function(global) {
+(function(global, $) {
     'use strict';
+    /**
+     * ノードのサイズ
+     * @type {number}
+     */
+    const NODE_RADIUS = 20;
+
 
     /**
      * 重なり判定
-     * @param {PIXI.Rectangle} rc1
-     * @param {PIXI.Rectangle} rc2
+     * @param rc1
+     * @param rc2
      * @returns {boolean}
      */
     function intersect(rc1, rc2) {
@@ -18,29 +24,6 @@
         }
     }
 
-
-    /**
-     * 定数定義
-     */
-    var Const = {
-        /**
-         * Nodeの半径
-         */
-        NodeRadius: 20,
-        /**
-         * キャンバス幅
-         */
-        CanvasWidth: 800,
-        /**
-         * キャンバス高さ
-         */
-        CanvasHeight: 600,
-        /**
-         * キャンバス矩形
-         */
-        CanvasRect: new PIXI.Rectangle(0, 0, 800, 600)
-    };
-
     /**
      * シミュレータ本体
      */
@@ -53,21 +36,32 @@
          * @var [Generator]
          */
         generators: [],
-        /**
-         *
-         */
         container: new PIXI.Container(),
+        width: 800,
+        height: 600,
+        frame: 0,
+        /**
+         * シミュレータのサイズを設定する
+         * @param w
+         * @param h
+         */
+        setSize: function(w, h) {
+            this.width = w;
+            this.height = h;
+        },
         /**
          * シミュレータを開始する
          */
         start: function() {
-            var renderer = PIXI.autoDetectRenderer(Const.CanvasWidth, Const.CanvasHeight, {
+            var renderer = PIXI.autoDetectRenderer(this.width, this.height, {
                 antialias: true,
                 transparent: true
             });
             $('#stage').append(renderer.view);
 
+            var self = this;
             function animate() {
+                self.frame++;
                 Simulator.updateNodes();
                 renderer.render(Simulator.container);
                 requestAnimationFrame( animate );
@@ -82,40 +76,57 @@
             for (var i = this.nodes.length - 1; i >= 0; i--) {
                 var n = this.nodes[i];
                 var nrc = n.shape.getBounds();
-                if (intersect(nrc, Const.CanvasRect)) {
+                if (intersect(nrc, {x:0, y:0, width:this.width, height:this.height})) {
                     n.next();
                 } else {
                     // 画面外に出たNodeは削除する
-                    this.nodes.splice(i, 1);
-                    this.container.removeChild(n.shape);
-                    n.shape.destroy();
+                    this.removeNodeAt(i);
                 }
             }
             // 新しく生成する
             for (var i = this.generators.length - 1; i >= 0; i--) {
-                var gen = this.generators[i].generate();
-                Array.prototype.push.apply(this.nodes, gen);
+                this.generators[i].estimateGenerate(this.frame);
             }
         },
+        /**
+         * 自動生成の定義を追加する
+         * @param params
+         */
         addGenerator: function(params) {
             this.generators.push(new Generator(params));
+        },
+        /**
+         * ノードを削除する
+         * @param idx
+         */
+        removeNodeAt: function(idx) {
+            var n = this.nodes[idx];
+            this.nodes.splice(idx, 1);
+            this.container.removeChild(n.shape);
+            n.shape.destroy();
+        },
+        /**
+         * ノードを追加する
+         * @param param
+         */
+        addNode: function(param) {
+            var n = new Node();
+            n.setPos(param.x, param.y);
+            n.speedX = param.speedX;
+            n.speedY = param.speedY;
+            this.nodes.push(n);
+            this.container.addChild(n.shape);
+        },
+        /**
+         * あるノードに一番近いノード
+         * @param n
+         */
+        nearestNode: function(n) {
+
         }
-
-
     } ;
 
 
-    /**
-     * Simulatorのpublicメソッド
-     */
-    var SimulatorExport = {
-        start: function() {
-            Simulator.start();
-        },
-        addGenerator: function(params) {
-            Simulator.addGenerator(params);
-        }
-    };
 
     /**
      * Nodeを自動生成するオブジェクト
@@ -123,13 +134,11 @@
     function Generator(params) {
         // 設定値を上書き
         var g = this;
-        $.each(['interval', 'entrance', 'speedX', 'speedY'], function(i, key) {
+        $.each(['interval', 'entrance', 'speedX', 'speedY', 'generate'], function(i, key) {
             if (typeof(params[key]) != 'undefined') {
                 g[key] = params[key];
             }
         });
-        this.counter = 99999999;
-
     };
     Generator.prototype = {
         /**
@@ -141,8 +150,8 @@
          */
         entrance: {
             left: 0,
-            space: Const.NodeRadius * 2,
-            width: Const.CanvasWidth
+            space: 10,
+            right: 0
         },
         /**
          * X方向スピード初期値
@@ -153,44 +162,30 @@
          */
         speedY: 0,
         /**
-         * interval計測用カウンタ
+         * generate関数
          */
-        counter: 0,
+        generate: null,
         /**
          * Nodeを発生させる
          */
-        generate: function() {
-            this.counter++;
-            var ret = [];
-            if (this.counter >= this.interval) {
-                this.counter = 0;
-                var stage = Simulator.container;
-                var x = this.entrance.left;
-                var endX = this.entrance.left + this.entrance.width;
-                var y = Const.CanvasHeight;
-                while (x < endX) {
-                    var n = new Node();
-                    n.pos(x, y);
-                    n.speedX = this.speedX;
-                    n.speedY = this.speedY;
-                    ret.push(n);
-                    stage.addChild(n.shape);
-                    x += this.entrance.space;
+        estimateGenerate: function(frame) {
+            if (typeof(this.generate) == 'function') {
+                var p = this.generate(frame);
+                if (p) {
+                    Simulator.addNode(p);
                 }
             }
-            return ret;
         }
-    }
+    };
 
     /**
      * 群衆の一人
      * @constructor
      */
     function Node() {
-        var s = new PIXI.Sprite.fromImage('img/circle.png');
-        s.height = s.width = Const.NodeRadius * 2;
-        this.shape = s;
         this.id = Node.idCounter++;
+        this.shape = new PIXI.Graphics();
+        this._draw();
     }
     Node.idCounter = 1;
 
@@ -209,39 +204,66 @@
          */
         speedY: 0,
         /**
+         * アクセル
+         */
+        acceleration: 1,
+        /**
+         * 色
+         * @private
+         */
+        _color: 0xFFFFFF,
+        /**
          * 位置を設定する
          * @param x
          * @param y
          */
-        pos: function(x, y) {
-            this.shape.position.x = x;
-            this.shape.position.y = y;
+        setPos: function(x, y) {
+            var p = this.shape.position;
+            p.x = x;
+            p.y = y;
         },
         /**
-         * X座標を返す
-         * @returns {number}
+         * 位置を返す
+         * @returns {PIXI.Point}
          */
-        x: function() {
-            return this.shape.position.x;
+        pos: function() {
+            var p = this.shape.position;
+            return {
+                x: p.x,
+                y: p.y
+            };
         },
         /**
-         * Y座標を返す
-         * @returns {number}
-         */
-        y: function() {
-            return this.shape.position.y;
-        },
-        /**
-         * 位置を更新する
+         * 更新する
          */
         next: function() {
-            this.pos(this.x() + this.speedX, this.y() + this.speedY);
+            var p = this.pos();
+            this.setPos(p.x + this.speedX * this.acceleration,
+                p.y + this.speedY * this.acceleration);
+        },
+        /**
+         * 色を変更する
+         * @param c
+         */
+        setColor: function(c) {
+            this._color = c;
+            this._draw();
+        },
+        /**
+         * 描画する
+         * @private
+         */
+        _draw: function() {
+            var g = this.shape;
+            g.beginFill(this._color, 1);
+            g.lineStyle(2, 0, 1);
+            g.drawCircle(0, 0, NODE_RADIUS);
+            g.endFill();
         }
     };
 
     global.CS = {
-        Simulator: SimulatorExport,
-        Const: Const
+        Simulator: Simulator
     };
 
-})(window);
+})(window, jQuery);
