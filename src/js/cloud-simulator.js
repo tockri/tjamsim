@@ -91,7 +91,7 @@
                     transparent: true
                 });
                 $('#stage').append(this.renderer.view);
-                this.map.strategy = new Strategy(this.map);
+                this.addStrategy(BrakeStrategy);
             }
 
             var self = this;
@@ -117,6 +117,13 @@
             this.generators.push(new Generator(params, this.map));
         },
         /**
+         * Nodeの戦略を追加する
+         * @param st
+         */
+        addStrategy: function(st) {
+            this.map.strategies.push(st);
+        },
+        /**
          * 登録されているGeneratorをすべて評価する
          */
         generateNodes: function() {
@@ -127,29 +134,19 @@
     };
 
     /**
-     * 各ノードの戦略を司る
+     * 車間距離によってぶつかるのを回避するStrategy
      * @param map
      * @constructor
      */
-    function Strategy(map) {
-        this.map = map;
-    }
-    Strategy.prototype = {
-        /**
-         * @member {Map}
-         */
-        map: null,
-        /**
-         * 次のフレームでのspeedとaccelerationを決定する
-         * @param {Node} n
-         */
-        decide: function(n) {
-            var info = this.map.crushingNode(n, 20);
+    var BrakeStrategy = {
+        decide: function(map, n) {
+            var info = map.crushingNode(n, 20);
             if (info) {
-                if (info.distance < NODE_RADIUS * 3) {
+                // 30フレーム後にぶつかる位置にNodeが存在する場合、距離によってaccelerationを調節する
+                if (info.distance < NODE_RADIUS * 4) {
                     n.acceleration = 0;
                     n.setColor(0xFF0000);
-                } else if (info.distance < NODE_RADIUS * 6) {
+                } else if (info.distance < NODE_RADIUS * 10) {
                     n.acceleration *= 0.8;
                     n.setColor(0xFFFF00);
                 } else {
@@ -157,10 +154,11 @@
                     n.setColor(0xFFDDDD);
                 }
             } else {
+                // ぶつかる位置にNodeが存在しない場合、加速する
                 if (n.acceleration < 0.05) {
                     n.acceleration = 0.05;
                 } else if (n.acceleration < 1) {
-                    n.acceleration /= 0.95;
+                    n.acceleration /= 0.9;
                     if (n.acceleration > 1) {
                         n.setColor(0xFFFFFF);
                         n.acceleration = 1;
@@ -187,6 +185,7 @@
         this.width = width;
         this.height = height;
         this.container = new PIXI.Container();
+        this.strategies = [];
     }
     Map.prototype = {
         width: 0,
@@ -196,7 +195,7 @@
         /**
          * @member {Strategy} ノードの行動を決定するオブジェクト
          */
-        strategy: null,
+        strategies: null,
         /**
          * ノードを追加する
          * @param n
@@ -204,7 +203,16 @@
         addNode: function(n) {
             this.nodeLists[this._areaIndexOf(n)].push(n);
             this.container.addChild(n.shape);
-            this.strategy.decide(n);
+            this.decide(n);
+        },
+        /**
+         * ノードのspeedとaccelerationを決定する
+         * @param n
+         */
+        decide: function(n) {
+            for (var i = 0; i < this.strategies.length; i++) {
+                this.strategies[i].decide(this, n);
+            }
         },
         /**
          * ノードを追加できる状態かどうかを判定する
@@ -286,7 +294,7 @@
                         continue;
                     }
                     doneIds[n.id] = true;
-                    this.strategy.decide(n);
+                    this.decide(n);
                     n.next();
                     var nrc = n.shape.getBounds();
                     if (intersect(nrc, {x:0, y:0, width:this.width, height:this.height})) {

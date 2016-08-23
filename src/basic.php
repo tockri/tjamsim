@@ -5,15 +5,12 @@ Page::useScript('basic/js/stage.js');
 Page::head('Basic');
 ?>
 <h1>Basic simulation</h1>
-<fieldset>
-    <legend>Control</legend>
-    <div class="form-group">
+<div class="checkbox">
+    <label>
         <input type="checkbox" name="" id="fast-car">
-        <label for="fast-car">
-            Fast cars exists
-        </label>
-    </div>
-</fieldset>
+        Fast car exists
+    </label>
+</div>
 <div id="stage"></div>
 
 
