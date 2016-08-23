@@ -15,8 +15,7 @@
     var counter = 0;
     CS.Simulator.addGenerator({
         generate: function() {
-            if (++counter > 20) {
-
+            if (++counter > 30) {
                 return {
                     x: 25,
                     y: H,
@@ -38,13 +37,13 @@
     var counter2 = 0;
     CS.Simulator.addGenerator({
         generate: function() {
-            if (++counter2 > 20) {
+            if (++counter2 > 30) {
                 counter2 = 0;
                 return {
                     x: 75,
                     y: H,
                     speedX: 0,
-                    speedY: -2.8 - (fastCarExists() ? Math.random() * 3 : 0)
+                    speedY: -2.4 - (fastCarExists() ? Math.random() * 3 : 0)
                 }
             } else {
                 return null;
