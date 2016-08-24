@@ -58,10 +58,6 @@
          */
         map: null,
         /**
-         * @member {[Generator]}
-         */
-        generators: [],
-        /**
          * 実行中
          * @member {boolean}
          */
@@ -98,7 +94,7 @@
             var map = this.map;
             function animate() {
                 map.updateNodes();
-                Simulator.generateNodes();
+                map.generateNodes();
                 self.renderer.render(map.container);
                 if (self.running) {
                     requestAnimationFrame(animate);
@@ -114,7 +110,7 @@
          * @param params
          */
         addGenerator: function(params) {
-            this.generators.push(new Generator(params, this.map));
+            this.map.generators.push(new Generator(params));
         },
         /**
          * Nodeの戦略を追加する
@@ -122,14 +118,6 @@
          */
         addStrategy: function(st) {
             this.map.strategies.push(st);
-        },
-        /**
-         * 登録されているGeneratorをすべて評価する
-         */
-        generateNodes: function() {
-            for (var i = this.generators.length - 1; i >= 0; i--) {
-                this.generators[i].estimateGenerate();
-            }
         }
     };
 
@@ -168,7 +156,8 @@
         }
     };
 
-    var MAP_DIVISION = 20;
+    // 分割したマップ断片のY軸サイズ
+    var AREA_SIZE = 60;
 
     /**
      * マップ
@@ -178,7 +167,8 @@
      */
     function Map(width, height) {
         var nl = [];
-        for (var i = 0; i < MAP_DIVISION; i++) {
+        var div = Math.ceil(height / AREA_SIZE);
+        for (var i = 0; i < div; i++) {
             nl.push([]);
         }
         this.nodeLists = nl;
@@ -186,6 +176,7 @@
         this.height = height;
         this.container = new PIXI.Container();
         this.strategies = [];
+        this.generators = [];
     }
     Map.prototype = {
         width: 0,
@@ -193,9 +184,13 @@
         container: null,
         nodeLists: null,
         /**
-         * @member {Strategy} ノードの行動を決定するオブジェクト
+         * @member {Strategy[]} ノードの行動を決定するオブジェクトの配列
          */
         strategies: null,
+        /**
+         * @member {Generator[]} ノード生成を司るオブジェクトの配列
+         */
+        generators: null,
         /**
          * ノードを追加する
          * @param n
@@ -264,7 +259,7 @@
          * @private
          */
         _areaIndexOfPos: function(x, y) {
-            return Math.max(0, Math.min(MAP_DIVISION - 1, Math.floor(MAP_DIVISION * y / this.height)));
+            return Math.max(0, Math.min(this.nodeLists.length - 1, Math.floor(y / AREA_SIZE)));
         },
         /**
          * エリアを表す矩形を返す
@@ -272,12 +267,11 @@
          * @private
          */
         _areaRect: function(a) {
-            var h = this.height / MAP_DIVISION;
             return {
                 x: 0,
-                y: h * a,
+                y: AREA_SIZE * a,
                 width: this.width,
-                height: h
+                height: AREA_SIZE
             };
         },
         /**
@@ -347,6 +341,14 @@
                 }
             }
             return null;
+        },
+        /**
+         * 登録されているGeneratorをすべて評価する
+         */
+        generateNodes: function() {
+            for (var i = this.generators.length - 1; i >= 0; i--) {
+                this.generators[i].estimateGenerate(this);
+            }
         }
     };
 
@@ -354,9 +356,8 @@
     /**
      * Nodeを自動生成するオブジェクト
      */
-    function Generator(def, map) {
+    function Generator(def) {
         this.def = def;
-        this.map = map;
     };
     Generator.prototype = {
         /**
@@ -367,25 +368,20 @@
          */
         def: null,
         /**
-         * @member {Map}
-         */
-        map: null,
-        /**
          * Nodeを発生させる
          */
-        estimateGenerate: function() {
-            var p = this.def.generate();
+        estimateGenerate: function(map) {
+            var p = this.def.generate(map);
             if (p) {
-                if (this.map.canAddNode(p.x, p.y)) {
+                if (map.canAddNode(p.x, p.y)) {
                     var n = new Node();
                     n.setPos(p.x, p.y);
                     n.speed.x = p.speedX;
                     n.speed.y = p.speedY;
-                    this.map.addNode(n);
+                    map.addNode(n);
                     this.def.onAdded();
                 }
             }
-
         }
     };
 
