@@ -11,6 +11,17 @@ Page::head('Basic');
         Fast car exists
     </label>
 </div>
+<div class="measured">
+    <div>
+        <label>Elapsed Time(sec) : </label><span id="elapsed-time">0</span>
+    </div>
+    <div>
+        <label>Finished Count : </label><span id="finished-count">0</span>
+    </div>
+    <div>
+        <label>Flow Rate(finished per seconds) :</label><span id="flow-rate">0</span>
+    </div>
+</div>
 <div id="stage"></div>
 
 

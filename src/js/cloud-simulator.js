@@ -67,19 +67,27 @@
          */
         renderer: null,
         /**
+         * 経過時間
+         */
+        elapsedTime: 0,
+        /**
+         * ゴールした Node の数
+         */
+        finishedCount: 0,
+        /**
          * シミュレータのサイズを設定する
          * @param w
          * @param h
          */
         setSize: function(w, h) {
-            this.map = new Map(w, h);
+            this.map = new Map(w, h, this);
         },
         /**
          * シミュレータを開始する
          */
         start: function() {
             if (this.map == null) {
-                this.map = new Map(800, 600);
+                this.map = new Map(800, 600, this);
             }
             if (this.renderer == null) {
                 this.renderer = PIXI.autoDetectRenderer(this.map.width, this.map.height, {
@@ -93,6 +101,7 @@
             var self = this;
             var map = this.map;
             function animate() {
+                self.updateElapsedTime();
                 map.updateNodes();
                 map.generateNodes();
                 self.renderer.render(map.container);
@@ -118,7 +127,30 @@
          */
         addStrategy: function(st) {
             this.map.strategies.push(st);
-        }
+        },
+
+        /**
+         * 経過時間を更新する
+         */
+        updateElapsedTime: function() {
+            var deltaTime = this.getPast();
+            if (isNaN(deltaTime) == false) {
+                this.elapsedTime += deltaTime / 1000;
+                var pow = Math.pow(10, 2);
+                this.elapsedTime = Math.round(this.elapsedTime * pow) / pow;
+                $("#elapsed-time").text(this.elapsedTime);
+            }
+        },
+
+        getPast: (function() {
+            var lastDate = NaN;
+            return function() {
+                var now = Date.now();
+                var past = now - lastDate;
+                lastDate = now;
+                return past;
+            };
+        })()
     };
 
     /**
@@ -165,7 +197,7 @@
      * @param height
      * @constructor
      */
-    function Map(width, height) {
+    function Map(width, height, simulator) {
         var nl = [];
         var div = Math.ceil(height / AREA_SIZE);
         for (var i = 0; i < div; i++) {
@@ -174,6 +206,7 @@
         this.nodeLists = nl;
         this.width = width;
         this.height = height;
+        this.simulator = simulator;
         this.container = new PIXI.Container();
         this.strategies = [];
         this.generators = [];
@@ -181,6 +214,7 @@
     Map.prototype = {
         width: 0,
         height: 0,
+        simulator: null,
         container: null,
         nodeLists: null,
         /**
@@ -301,6 +335,7 @@
                     } else {
                         // 画面外に出たNodeは削除する
                         this.removeNodeAt(a, i);
+                        this.updateFlowRate();
                     }
                 }
             }
@@ -349,8 +384,17 @@
             for (var i = this.generators.length - 1; i >= 0; i--) {
                 this.generators[i].estimateGenerate(this);
             }
-        }
-    };
+        },
+        /**
+         * Flow Rate を更新する
+         */
+        updateFlowRate: function() {
+            this.simulator.finishedCount += 1;
+            this.simulator.flowRate = this.simulator.finishedCount / (this.simulator.elapsedTime);
+            $("#finished-count").text(this.simulator.finishedCount);
+            $("#flow-rate").text(this.simulator.flowRate);
+        },
+     };
 
 
     /**
