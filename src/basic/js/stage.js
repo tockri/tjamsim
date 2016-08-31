@@ -3,7 +3,7 @@
  * 基本のシミュレーション
  */
 (function($) {
-    var H = 2400;
+    var H = 800;
     CS.Simulator.setSize(100, H);
     function fastCarExists() {
         return $('#fast-car').prop('checked');

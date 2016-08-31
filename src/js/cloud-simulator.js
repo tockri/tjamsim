@@ -5,6 +5,11 @@
      * @type {number}
      */
     const NODE_RADIUS = 20;
+    /**
+     * 流量を平均する秒数
+     * @type {number}
+     */
+    const RATE_SEC = 7;
 
 
     /**
@@ -69,11 +74,16 @@
         /**
          * 経過時間
          */
-        elapsedTime: 0,
+        startTime: 0,
         /**
          * ゴールした Node の数
          */
         finishedCount: 0,
+        /**
+         * ゴール時刻の配列
+         */
+        finishTimes: [],
+
         /**
          * シミュレータのサイズを設定する
          * @param w
@@ -83,25 +93,48 @@
             this.map = new Map(w, h, this);
         },
         /**
+         * オブジェクトを描画する
+         * @param {Array<Point>} polygon
+         * @param {int} bgColor
+         */
+        addShape: function(polygon, bgColor) {
+            var g = new PIXI.Graphics();
+            g.beginFill(bgColor);
+            g.drawPolygon(polygon);
+            g.endFill();
+            this.map.addShape(g);
+        },
+        initialize: function() {
+            this.renderer = PIXI.autoDetectRenderer(this.map.width, this.map.height, {
+                antialias: true,
+                transparent: true
+            });
+            $('#stage').append(this.renderer.view);
+            this.addStrategy(BrakeStrategy);
+            var s = this;
+            this.map.onGoal = function() {
+                var now = new Date().getTime();
+                s.finishedCount ++;
+                s.finishTimes.push(now);
+                $('#finished-count').text(s.finishedCount);
+            };
+        },
+        /**
          * シミュレータを開始する
          */
         start: function() {
             if (this.map == null) {
-                this.map = new Map(800, 600, this);
+                alert('setSize() first!');
+                throw 'cannot start';
             }
             if (this.renderer == null) {
-                this.renderer = PIXI.autoDetectRenderer(this.map.width, this.map.height, {
-                    antialias: true,
-                    transparent: true
-                });
-                $('#stage').append(this.renderer.view);
-                this.addStrategy(BrakeStrategy);
+                this.initialize();
             }
-
+            this.startTime = new Date().getTime();
             var self = this;
             var map = this.map;
             function animate() {
-                self.updateElapsedTime();
+                self.updateFlowRate();
                 map.updateNodes();
                 map.generateNodes();
                 self.renderer.render(map.container);
@@ -132,25 +165,18 @@
         /**
          * 経過時間を更新する
          */
-        updateElapsedTime: function() {
-            var deltaTime = this.getPast();
-            if (isNaN(deltaTime) == false) {
-                this.elapsedTime += deltaTime / 1000;
-                var pow = Math.pow(10, 2);
-                this.elapsedTime = Math.round(this.elapsedTime * pow) / pow;
-                $("#elapsed-time").text(this.elapsedTime);
+        updateFlowRate: function() {
+            var delta = new Date().getTime() - this.startTime;
+            $("#elapsed-time").text(parseInt(delta / 100) / 10);
+            var now = new Date().getTime();
+            for (var i = this.finishTimes.length - 1; i >= 0; i--) {
+                if (now - this.finishTimes[i] > RATE_SEC * 1000) {
+                    this.finishTimes.splice(i, 1);
+                }
             }
-        },
-
-        getPast: (function() {
-            var lastDate = NaN;
-            return function() {
-                var now = Date.now();
-                var past = now - lastDate;
-                lastDate = now;
-                return past;
-            };
-        })()
+            var flowRate = parseInt(this.finishTimes.length / RATE_SEC * 100) / 100;
+            $('#flow-rate').text(flowRate);
+        }
     };
 
     /**
@@ -210,6 +236,7 @@
         this.container = new PIXI.Container();
         this.strategies = [];
         this.generators = [];
+        this.onGoal = null;
     }
     Map.prototype = {
         width: 0,
@@ -218,6 +245,10 @@
         container: null,
         nodeLists: null,
         /**
+         * @member {function()} ゴール時に呼ばれるコールバック関数
+         */
+        onGoal: null,
+        /**
          * @member {Strategy[]} ノードの行動を決定するオブジェクトの配列
          */
         strategies: null,
@@ -225,6 +256,13 @@
          * @member {Generator[]} ノード生成を司るオブジェクトの配列
          */
         generators: null,
+        /**
+         *
+         * @param {PIXI.DisplayObject} s
+         */
+        addShape: function(s) {
+            this.container.addChild(s);
+        },
         /**
          * ノードを追加する
          * @param n
@@ -335,7 +373,9 @@
                     } else {
                         // 画面外に出たNodeは削除する
                         this.removeNodeAt(a, i);
-                        this.updateFlowRate();
+                        if (typeof(this.onGoal) == "function") {
+                            this.onGoal();
+                        }
                     }
                 }
             }
@@ -384,17 +424,8 @@
             for (var i = this.generators.length - 1; i >= 0; i--) {
                 this.generators[i].estimateGenerate(this);
             }
-        },
-        /**
-         * Flow Rate を更新する
-         */
-        updateFlowRate: function() {
-            this.simulator.finishedCount += 1;
-            this.simulator.flowRate = this.simulator.finishedCount / (this.simulator.elapsedTime);
-            $("#finished-count").text(this.simulator.finishedCount);
-            $("#flow-rate").text(this.simulator.flowRate);
-        },
-     };
+        }
+    };
 
 
     /**
@@ -422,6 +453,7 @@
                     n.setPos(p.x, p.y);
                     n.speed.x = p.speedX;
                     n.speed.y = p.speedY;
+                    n.context = p.context;
                     map.addNode(n);
                     this.def.onAdded();
                 }
