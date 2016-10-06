@@ -18,7 +18,7 @@
     var counter = 0;
     CS.Simulator.addGenerator({
         generate: function() {
-            if (++counter > 60) {
+            if (++counter > 65) {
                 return {
                     x: 25,
                     y: H,
@@ -44,7 +44,7 @@
     var counter2 = 35;
     CS.Simulator.addGenerator({
         generate: function() {
-            if (++counter2 > 70) {
+            if (++counter2 > 65) {
                 counter2 = 0;
                 return {
                     x: 75,
