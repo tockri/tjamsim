@@ -18,7 +18,7 @@
     var counter = 0;
     CS.Simulator.addGenerator({
         generate: function() {
-            if (++counter > 70) {
+            if (++counter > 60) {
                 return {
                     x: 25,
                     y: H,

@@ -189,8 +189,16 @@
             var info = map.crushingNode(n, 20);
             if (info) {
                 // 30フレーム後にぶつかる位置にNodeが存在する場合、距離によってaccelerationを調節する
-                if (info.distance < NODE_RADIUS * 4) {
-                    n.acceleration = 0;
+                if (info.distance < NODE_RADIUS) {
+                    if (info.node.pos().y > n.pos().y) {
+                        n.acceleration = 0;
+                        n.setColor(0xFF0000);
+                    } else {
+                        n.acceleration = 0.5;
+                        n.setColor(0xFF0000);
+                    }
+                } else if (info.distance < NODE_RADIUS * 4) {
+                    n.acceleration = 0.1;
                     n.setColor(0xFF0000);
                 } else if (info.distance < NODE_RADIUS * 10) {
                     n.acceleration *= 0.8;
@@ -387,7 +395,10 @@
          */
         crushingNode: function(n, frames) {
             var currPos = n.pos();
-            var futureLine = [currPos, n.futurePos(frames)];
+            var futurePos = n.futurePos(frames);
+            //currPos.y -= NODE_RADIUS;
+            //futurePos.y += NODE_RADIUS;
+            var futureLine = [currPos, futurePos];
             var found = null;
             for (var a = this._areaIndexOf(n); a >= 0; a--) {
                 if (!lineCrossRect(futureLine, this._areaRect(a))) {
