@@ -72,7 +72,7 @@ END;
         foreach(glob("{$dir}/*.php") as $path) {
             $fname = basename($path);
             if ($fname != $except) {
-                echo "<li><a href='${fname}'>${fname}</a>";
+                echo "<li><a href='{$fname}'>{$fname}</a>";
             }
         }
         echo '</ul>';

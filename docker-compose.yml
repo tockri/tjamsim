@@ -1,0 +1,10 @@
+version: '3'
+services:
+  php:
+    container_name: tjamsim_php
+    image: php
+    volumes:
+      - ./src:/var/www/html
+    ports:
+      - 8080:8080
+    command: php -S 0.0.0.0:8080 -t /var/www/html
